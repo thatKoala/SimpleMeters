@@ -45,3 +45,8 @@ SimpleMeters is designed so DPS remains practical and stable:
 - Burning Crusade Classic (`2.5.x`, interface `20505`)
 
 Author: `paul@thatkoala.com`
+
+## Latest Build
+
+- `SimpleMeters-v03p.zip -> db95347717b9ee1743f20f3eca12ed8ae092954c26e81b073d4765b871474ad3`
+

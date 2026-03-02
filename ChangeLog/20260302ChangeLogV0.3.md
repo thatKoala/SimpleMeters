@@ -29,4 +29,4 @@
 
 ## Build Integrity
 
-- `SimpleMeters-v03p.zip` SHA-256: `d643dac31f95b33111be348219f1a5f460763fdc56beb45254bbf51e85f9fdfb`
+- `SimpleMeters-v03p.zip` SHA-256: `db95347717b9ee1743f20f3eca12ed8ae092954c26e81b073d4765b871474ad3`

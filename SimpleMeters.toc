@@ -1,10 +1,10 @@
 ## Interface: 11404, 20505
-## Title: SimpleMeters |cff66c6ffv0.3|r
+## Title: SimpleMeters |cff66c6ffv0.4|r
 ## Notes: Lightweight stock-style meters for Classic/TBC.
 ## Author: paul@thatkoala.com
 ## IconTexture: Interface\Icons\Spell_Fire_Fireball02
 ## SavedVariables: SimpleMetersDB
-## SHA-256: db95347717b9ee1743f20f3eca12ed8ae092954c26e81b073d4765b871474ad3
+## SHA-256: <pending until final build>
 
 SimpleMeters.lua
 SimpleMeters_Util.lua

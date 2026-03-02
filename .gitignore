@@ -1,5 +1,9 @@
 Assets/
 assets/
+Versions/
 .DS_Store
 AGENTS.md
 agents.md
+SimpleMeters.zip
+SimpleMeters-v*.zip
+!SimpleMeters-v*p.zip

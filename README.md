@@ -24,7 +24,7 @@ The addon supports two visual styles so you can choose what fits your UI layout:
 - Rendering is kept compact and stock-UI aligned, with no external libraries or heavy visual systems.
 - Data is prepared once and reused across panels, which helps maintain smooth behavior in combat.
 
-## DPS Integrity (High Level)
+## DPS Integrity
 
 SimpleMeters is designed so DPS remains practical and stable:
 

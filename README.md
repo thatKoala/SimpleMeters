@@ -1,17 +1,36 @@
 # SimpleMeters
 
-SimpleMeters is a lightweight, stock-style damage meter for WoW Classic Era/TBC.
+SimpleMeters is a lightweight, stock-style damage meter for WoW Classic Era and TBC Classic.
 
-It focuses on clear, fast damage tracking with minimal UI overhead.
+It is built to stay fast and readable during real dungeon and raid play: clean panel options, focused damage metrics, and low-overhead updates that do not get in the way of gameplay.
 
-## Project Scope
+## Project Overview
 
-- Damage-only meter (no healing/HPS scope)
-- Modes: `Total`, `Fight`, `Boss`
-- Class-colored rows and compact stock-UI presentation
-- Multi-panel support (bar panel and text panel)
-- Local persistence for totals and boss history
-- Pet merge support
+SimpleMeters tracks damage in three practical modes:
+
+- `Total`: cumulative damage since last reset
+- `Fight`: current encounter damage
+- `Boss`: saved boss-fight snapshots for quick review
+
+The addon supports two visual styles so you can choose what fits your UI layout:
+
+- **Bar panel** for compact visual comparison
+- **Text-only panel** for minimal footprint and quick scanning
+
+## Why It Is Lightweight
+
+- Damage-only scope keeps parsing and rendering focused.
+- Combat updates are filtered and throttled to avoid noisy UI churn.
+- Rendering is kept compact and stock-UI aligned, with no external libraries or heavy visual systems.
+- Data is prepared once and reused across panels, which helps maintain smooth behavior in combat.
+
+## DPS Integrity (High Level)
+
+SimpleMeters is designed so DPS remains practical and stable:
+
+- Overkill is excluded from effective damage totals.
+- Fight timing ends on fight-finish logic instead of continuing to drift after the real damage window.
+- Total/Fight/Boss views all follow the same core timing principles so numbers remain consistent.
 
 ## Commands
 
@@ -20,11 +39,9 @@ It focuses on clear, fast damage tracking with minimal UI overhead.
 - `/smsm 2` creates a new text panel
 - `/smsm help` shows command help
 
-## Design Goals
+## Compatibility
 
-- Keep combat parsing lightweight
-- Keep UI updates throttled and smooth
-- Stay strictly stock Blizzard style/assets
-- Stay compatible with Classic Era and TBC clients
+- Classic Era (`1.14.x` branch)
+- Burning Crusade Classic (`2.5.x`, interface `20505`)
 
 Author: `paul@thatkoala.com`

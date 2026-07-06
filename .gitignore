@@ -1,0 +1,35 @@
+# Local agent/project notes
+AGENTS.md
+AGENTS.local.md
+
+# Local release/build artifacts
+builds/
+/ChangeLog/
+/*.zip
+/SimpleMetersDev.toc
+
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+
+# Editor and workspace noise
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Local WoW runtime data, if copied here by mistake
+WTF/
+Cache/

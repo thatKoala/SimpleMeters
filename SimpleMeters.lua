@@ -173,11 +173,18 @@ function addon:Print(message)
     end
 end
 
+local function CommandText(command)
+    return "|cffffd100" .. command .. "|r"
+end
+
 function addon:PrintHelp()
-    self:Print("/smsm toggles all SimpleMeters panels.")
-    self:Print("/smsm 1 creates a SimpleMeters bar panel, and you can have many panels.")
-    self:Print("/smsm 2 creates a SimpleMeters text panel, and you can have many panels.")
-    self:Print("/smsm help prints this help.")
+    self:Print(CommandText("/smsm") .. " or " .. CommandText("/smsm help") .. " shows all the commands available.")
+    self:Print(CommandText("/smsm show") .. " shows all SimpleMeters panels.")
+    self:Print(CommandText("/smsm hide") .. " hides all SimpleMeters panels.")
+    self:Print(CommandText("/smsm toggle") .. " will toggle to show or hide the available SimpleMeters panels.")
+    self:Print(CommandText("/smsm 1") .. " creates a SimpleMeters bar panel, and you can have many panels.")
+    self:Print(CommandText("/smsm 2") .. " creates a SimpleMeters text panel, and you can have many panels.")
+    self:Print(CommandText("/smsm minimap") .. " or " .. CommandText("/smsm map") .. " toggles the minimap button.")
 end
 
 function addon:PromptReset(reason)
@@ -407,6 +414,7 @@ end
 function addon:RegisterRuntimeEvents()
     local frame = self.eventFrame
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    frame:RegisterEvent("PLAYER_LEAVING_WORLD")
     frame:RegisterEvent("PLAYER_LOGOUT")
     frame:RegisterEvent("GROUP_ROSTER_UPDATE")
     frame:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -427,6 +435,32 @@ function addon:HandleSlash(msg)
     local command = strlower((msg or ""):match("^(%S*)") or "")
 
     if command == "" then
+        self:PrintHelp()
+        return
+    end
+
+    if command == "help" then
+        self:PrintHelp()
+        return
+    end
+
+    if command == "show" then
+        if self.SetAllPanelsShown then
+            self:SetAllPanelsShown(true)
+            self:Print("All panels are now shown.")
+        end
+        return
+    end
+
+    if command == "hide" then
+        if self.SetAllPanelsShown then
+            self:SetAllPanelsShown(false)
+            self:Print("All panels are now hidden.")
+        end
+        return
+    end
+
+    if command == "toggle" then
         if self.ToggleAllPanels then
             local shown = self:ToggleAllPanels()
             if shown then
@@ -435,11 +469,6 @@ function addon:HandleSlash(msg)
                 self:Print("All panels are now hidden.")
             end
         end
-        return
-    end
-
-    if command == "help" then
-        self:PrintHelp()
         return
     end
 
@@ -463,6 +492,21 @@ function addon:HandleSlash(msg)
             else
                 self:Print(info or "Panel limit reached.")
             end
+        end
+        return
+    end
+
+    if command == "minimap" or command == "map" then
+        if self.db and self.db.minimap then
+            self.db.minimap.hide = not self.db.minimap.hide
+        end
+        if self.UpdateMinimapButtonPosition then
+            self:UpdateMinimapButtonPosition()
+        end
+        if self.db and self.db.minimap and self.db.minimap.hide then
+            self:Print("Minimap button hidden.")
+        else
+            self:Print("Minimap button shown.")
         end
         return
     end
@@ -511,6 +555,12 @@ function addon:PLAYER_ENTERING_WORLD()
     end
     if self.WakeUITicker and not self.uiTickerRunning then
         self:WakeUITicker()
+    end
+end
+
+function addon:PLAYER_LEAVING_WORLD()
+    if self.SavePersistedCombat then
+        self:SavePersistedCombat(true)
     end
 end
 

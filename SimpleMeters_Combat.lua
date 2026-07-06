@@ -37,6 +37,10 @@ local AFFILIATION_MASK = bor(
     COMBATLOG_OBJECT_AFFILIATION_RAID
 )
 local PET_TYPE_MASK = bor(COMBATLOG_OBJECT_TYPE_PET or 0, COMBATLOG_OBJECT_TYPE_GUARDIAN or 0)
+local SELF_DAMAGE_SPELLS = {
+    [32379] = true, -- Shadow Word: Death
+    [129176] = true, -- Shadow Word: Death
+}
 
 local FIGHT_END_DELAY = 3
 local FIGHT_FINALIZE_FAILSAFE = 30
@@ -63,6 +67,7 @@ state.pendingGUIDLookupHead = tonumber(state.pendingGUIDLookupHead) or 1
 state.pendingGUIDLookupTail = tonumber(state.pendingGUIDLookupTail) or 0
 state.pendingGUIDLookup = state.pendingGUIDLookupSet
 state.guidLookupAttempted = state.guidLookupAttempted or {}
+state.guidLookupRetryAt = state.guidLookupRetryAt or {}
 state.spellMeta = state.spellMeta or {}
 
 state.bossHistory = state.bossHistory or {}
@@ -135,13 +140,22 @@ local function ClearPendingFinalize()
     state.oocConfirmedAt = 0
 end
 
+local function IsPlayerGUID(guid)
+    return guid and strsub(guid, 1, 7) == "Player-"
+end
+
 local function QueueGUIDLookup(guid)
-    if not guid or state.guidLookupAttempted[guid] or state.pendingGUIDLookupSet[guid] then
+    if not guid or state.pendingGUIDLookupSet[guid] then
+        return
+    end
+
+    local retryAt = state.guidLookupRetryAt[guid]
+    if retryAt and retryAt > GetTime() then
         return
     end
 
     -- Class fallback is only meaningful for player GUIDs.
-    if strsub(guid, 1, 7) ~= "Player-" then
+    if not IsPlayerGUID(guid) then
         state.guidLookupAttempted[guid] = true
         return
     end
@@ -150,6 +164,65 @@ local function QueueGUIDLookup(guid)
     state.pendingGUIDLookup = state.pendingGUIDLookupSet
     state.pendingGUIDLookupTail = state.pendingGUIDLookupTail + 1
     state.pendingGUIDLookupQueue[state.pendingGUIDLookupTail] = guid
+end
+
+local function IsGroupGUID(guid)
+    return guid and state.groupMemberGUIDs and state.groupMemberGUIDs[guid] == true
+end
+
+local function IsAffiliated(flags)
+    return flags and band(flags, AFFILIATION_MASK) ~= 0
+end
+
+local function IsPetOrGuardian(flags)
+    return flags and band(flags, PET_TYPE_MASK) ~= 0
+end
+
+local function IsShadowWordDeath(spellId, spellName)
+    if spellId and SELF_DAMAGE_SPELLS[spellId] then
+        return true
+    end
+    return spellName == "Shadow Word: Death"
+end
+
+local function IsFriendlyDamage(srcGUID, srcFlags, destGUID, destFlags, spellId, spellName)
+    if srcGUID and destGUID and srcGUID == destGUID then
+        return true
+    end
+
+    if IsShadowWordDeath(spellId, spellName) and IsGroupGUID(destGUID) then
+        return true
+    end
+
+    local sourceOwnerGUID = state.petOwnerByGUID[srcGUID]
+    local sourceIsKnownFriendly = IsGroupGUID(srcGUID) or IsGroupGUID(sourceOwnerGUID) or (IsPlayerGUID(srcGUID) and IsAffiliated(srcFlags))
+    local destIsKnownFriendly = IsGroupGUID(destGUID) or IsAffiliated(destFlags)
+    return sourceIsKnownFriendly and destIsKnownFriendly
+end
+
+local function ResolveTrackedSource(srcGUID, srcName, srcFlags)
+    if not srcGUID or not srcFlags then
+        return nil
+    end
+
+    local ownerGUID = state.petOwnerByGUID[srcGUID]
+    if ownerGUID then
+        if IsGroupGUID(ownerGUID) or IsAffiliated(srcFlags) then
+            return ownerGUID, srcName
+        end
+        return nil
+    end
+
+    if IsPetOrGuardian(srcFlags) then
+        -- Keep orphan pet/guardian events out of rankings until owner mapping is known.
+        return nil
+    end
+
+    if IsGroupGUID(srcGUID) or (IsPlayerGUID(srcGUID) and IsAffiliated(srcFlags)) then
+        return srcGUID, nil
+    end
+
+    return nil
 end
 
 local function BuildGroupDiff(oldMap, newMap)
@@ -374,6 +447,7 @@ local SUBEVENT_DISPATCH = {
     SPELL_DAMAGE = HandleSPELL_DAMAGE,
     SPELL_PERIODIC_DAMAGE = HandleSPELL_DAMAGE,
     RANGE_DAMAGE = HandleSPELL_DAMAGE,
+    DAMAGE_SHIELD = HandleSPELL_DAMAGE,
     ENVIRONMENTAL_DAMAGE = HandleENVIRONMENTAL_DAMAGE,
 }
 
@@ -382,6 +456,7 @@ local DAMAGE_SUBEVENTS = {
     SPELL_DAMAGE = true,
     SPELL_PERIODIC_DAMAGE = true,
     RANGE_DAMAGE = true,
+    DAMAGE_SHIELD = true,
     ENVIRONMENTAL_DAMAGE = true,
 }
 
@@ -709,6 +784,7 @@ function addon:RestorePersistedCombat()
     ClearTable(state.pendingBossKills)
     ClearTable(state.pendingGUIDLookupSet)
     ClearTable(state.pendingGUIDLookupQueue)
+    ClearTable(state.guidLookupRetryAt)
     state.pendingGUIDLookupHead = 1
     state.pendingGUIDLookupTail = 0
     state.pendingGUIDLookup = state.pendingGUIDLookupSet
@@ -1002,7 +1078,7 @@ function addon:ProcessPendingBossKills(maxPerTick)
 end
 
 function addon:OnCombatLogEvent()
-    local _, subevent, _, srcGUID, srcName, srcFlags, _, destGUID, destName, _, _, a1, a2, a3, a4, a5 = CombatLogGetCurrentEventInfo()
+    local _, subevent, _, srcGUID, srcName, srcFlags, _, destGUID, destName, destFlags, _, a1, a2, a3, a4, a5 = CombatLogGetCurrentEventInfo()
 
     if subevent == "UNIT_DIED" or subevent == "UNIT_DESTROYED" then
         if destGUID and state.activeBossGUIDs[destGUID] then
@@ -1012,18 +1088,9 @@ function addon:OnCombatLogEvent()
     end
 
     if subevent == "SPELL_SUMMON" then
-        if srcGUID and srcFlags and band(srcFlags, AFFILIATION_MASK) ~= 0 and destGUID then
+        if srcGUID and srcFlags and IsAffiliated(srcFlags) and destGUID then
             state.petOwnerByGUID[destGUID] = srcGUID
         end
-        return
-    end
-
-    if not srcGUID or not srcFlags then
-        return
-    end
-
-    -- Early affiliation filter before any event-specific parsing.
-    if band(srcFlags, AFFILIATION_MASK) == 0 then
         return
     end
 
@@ -1035,18 +1102,18 @@ function addon:OnCombatLogEvent()
     local now = GetTime()
     local isDamage = DAMAGE_SUBEVENTS[subevent] == true
 
-    local actorGUID = srcGUID
-    local petName = nil
+    if isDamage and IsFriendlyDamage(srcGUID, srcFlags, destGUID, destFlags, a1, a2) then
+        return
+    end
 
-    if addon.db and addon.db.mergePets ~= false then
-        local ownerGUID = state.petOwnerByGUID[srcGUID]
-        if ownerGUID then
-            actorGUID = ownerGUID
-            petName = srcName
-        elseif band(srcFlags, PET_TYPE_MASK) ~= 0 then
-            -- Skip orphan pet/guardian events until owner mapping is known.
-            return
-        end
+    local actorGUID, petName = ResolveTrackedSource(srcGUID, srcName, srcFlags)
+    if not actorGUID then
+        return
+    end
+
+    if addon.db and addon.db.mergePets == false then
+        petName = nil
+        actorGUID = srcGUID
     end
 
     if isDamage and not state.inFight then
@@ -1077,6 +1144,17 @@ function addon:ProcessPendingGUIDLookups(maxPerTick)
         head = head + 1
 
         if guid then
+            local now = GetTime()
+            local retryAt = state.guidLookupRetryAt[guid]
+            if retryAt and retryAt > now then
+                state.pendingGUIDLookupSet[guid] = true
+                state.pendingGUIDLookup = state.pendingGUIDLookupSet
+                tail = tail + 1
+                queue[tail] = guid
+                processed = processed + 1
+                break
+            end
+
             state.pendingGUIDLookupSet[guid] = nil
             state.pendingGUIDLookup = state.pendingGUIDLookupSet
             state.guidLookupAttempted[guid] = true
@@ -1087,6 +1165,7 @@ function addon:ProcessPendingGUIDLookups(maxPerTick)
                 local color = addon:GetClassColorTable(classFile)
                 state.rosterColorByGUID[guid] = color
                 state.guidLookupAttempted[guid] = nil
+                state.guidLookupRetryAt[guid] = nil
 
                 local actor = state.actors[guid]
                 if actor then
@@ -1094,6 +1173,15 @@ function addon:ProcessPendingGUIDLookups(maxPerTick)
                     actor.color = color
                     MarkRenderDirty()
                 end
+            else
+                state.guidLookupAttempted[guid] = nil
+                state.guidLookupRetryAt[guid] = now + 2
+                state.pendingGUIDLookupSet[guid] = true
+                state.pendingGUIDLookup = state.pendingGUIDLookupSet
+                tail = tail + 1
+                queue[tail] = guid
+                processed = processed + 1
+                break
             end
 
             processed = processed + 1
@@ -1175,6 +1263,7 @@ end
 
 function addon:BuildSpellBreakdown(damageMap, petSpellMap)
     local entries = {}
+    local petEntries = {}
 
     for key, amount in pairs(damageMap or {}) do
         if amount and amount > 0 then
@@ -1197,7 +1286,7 @@ function addon:BuildSpellBreakdown(damageMap, petSpellMap)
             if petByName then
                 for petName, petAmount in pairs(petByName) do
                     if petAmount and petAmount > 0 then
-                        entries[#entries + 1] = {
+                        petEntries[#petEntries + 1] = {
                             key = key,
                             name = name,
                             icon = icon or ICON_UNKNOWN,
@@ -1223,8 +1312,11 @@ function addon:BuildSpellBreakdown(damageMap, petSpellMap)
     if #entries > 1 then
         sort(entries, CompareBreakdownEntries)
     end
+    if #petEntries > 1 then
+        sort(petEntries, CompareBreakdownEntries)
+    end
 
-    return entries
+    return entries, petEntries
 end
 
 function addon:BuildPetBreakdown(damageMap)
@@ -1279,10 +1371,12 @@ function addon:GetActorTooltipData(actor, mode, now)
         return nil
     end
 
+    local spells, petSpells = self:BuildSpellBreakdown(spellMap, petSpellMap)
     return {
         damage = damage,
         duration = max(1, duration),
-        spells = self:BuildSpellBreakdown(spellMap, petSpellMap),
+        spells = spells,
+        petSpells = petSpells,
         pets = self:BuildPetBreakdown(petMap),
     }
 end
@@ -1297,10 +1391,12 @@ function addon:GetSnapshotTooltipData(snapshotActor, duration)
         return nil
     end
 
+    local spells, petSpells = self:BuildSpellBreakdown(snapshotActor.spells, snapshotActor.petSpells)
     return {
         damage = damage,
         duration = max(1, duration or 1),
-        spells = self:BuildSpellBreakdown(snapshotActor.spells, snapshotActor.petSpells),
+        spells = spells,
+        petSpells = petSpells,
         pets = self:BuildPetBreakdown(snapshotActor.pets),
     }
 end
@@ -1348,6 +1444,7 @@ function addon:ResetAll()
     ClearTable(state.pendingBossKills)
     ClearTable(state.pendingGUIDLookupSet)
     ClearTable(state.pendingGUIDLookupQueue)
+    ClearTable(state.guidLookupRetryAt)
     state.pendingGUIDLookupHead = 1
     state.pendingGUIDLookupTail = 0
     state.pendingGUIDLookup = state.pendingGUIDLookupSet

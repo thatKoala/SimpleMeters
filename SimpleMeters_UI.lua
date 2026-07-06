@@ -51,13 +51,14 @@ local TAB_WIDTH = 56
 local TAB_GAP = 5
 local TAB_BOTTOM_INSET = 6
 
-local HEADER_BUTTON_SIZE = 18
-local CLOSE_BUTTON_SIZE = HEADER_BUTTON_SIZE
-local SMALL_BUTTON_SIZE = HEADER_BUTTON_SIZE
+local HEADER_BUTTON_SIZE = 22
+local HEADER_ICON_SIZE = 16
+local HEADER_BUTTON_GAP = 4
 
-local BOSS_LIST_HEIGHT = 56
-local BOSS_BUTTON_COUNT = 4
+local BOSS_BUTTON_COUNT = 5
 local BOSS_BUTTON_HEIGHT = 13
+local BOSS_LIST_TITLE_HEIGHT = 14
+local BOSS_LIST_ROW_GAP = 1
 
 local ROW_HEIGHT_BARS = 18
 local ROW_HEIGHT_TEXT = 17
@@ -86,6 +87,8 @@ local ENABLE_IDLE_TICK_GUARD = true
 
 local sortedActors = {}
 local sortedValues = {}
+
+local SetHeaderButtonIcon
 
 local function Atan2(y, x)
     if math.atan2 then
@@ -136,6 +139,13 @@ local function GetPanelRowHeight(panelType)
         return ROW_HEIGHT_TEXT
     end
     return ROW_HEIGHT_BARS
+end
+
+local function GetBossListHeightForCount(count)
+    if not count or count <= 0 then
+        return 0
+    end
+    return BOSS_LIST_TITLE_HEIGHT + 6 + (count * BOSS_BUTTON_HEIGHT) + ((count - 1) * BOSS_LIST_ROW_GAP)
 end
 
 local function GetPanelById(db, panelId)
@@ -314,17 +324,32 @@ local function CreateBarRow(parent)
     row.bar:SetValue(0)
     row.bar:SetStatusBarColor(0.25, 0.45, 0.80, 0.90)
 
+    row.border = CreateFrame("Frame", nil, row, BACKDROP_TEMPLATE)
+    row.border:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+    row.border:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
+    row.border:SetFrameLevel(row.bar:GetFrameLevel() + 2)
+    if row.border.SetBackdrop then
+        row.border:SetBackdrop({
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true,
+            tileSize = 16,
+            edgeSize = 10,
+            insets = { left = 2, right = 2, top = 2, bottom = 2 },
+        })
+        row.border:SetBackdropBorderColor(0.28, 0.28, 0.28, 0.92)
+    end
+
     row.textLayer = CreateFrame("Frame", nil, row)
     row.textLayer:SetAllPoints()
     row.textLayer:SetFrameLevel(row.bar:GetFrameLevel() + 4)
 
     row.classIcon = row.textLayer:CreateTexture(nil, "OVERLAY")
     row.classIcon:SetSize(13, 13)
-    row.classIcon:SetPoint("LEFT", row, "LEFT", 3, 0)
+    row.classIcon:SetPoint("LEFT", row, "LEFT", 4, 0)
 
     row.nameText = row.textLayer:CreateFontString(nil, "OVERLAY")
     row.nameText:SetFont(STANDARD_TEXT_FONT, 11)
-    row.nameText:SetPoint("LEFT", row.classIcon, "RIGHT", 2, 0)
+    row.nameText:SetPoint("LEFT", row.classIcon, "RIGHT", 3, 0)
     row.nameText:SetJustifyH("LEFT")
     row.nameText:SetTextColor(1, 1, 1)
     row.nameText:SetShadowOffset(1, -1)
@@ -333,7 +358,7 @@ local function CreateBarRow(parent)
     row.valueDpsText = row.textLayer:CreateFontString(nil, "OVERLAY")
     row.valueDpsText:SetFont(STANDARD_TEXT_FONT, 11, "OUTLINE")
     row.valueDpsText:SetPoint("RIGHT", row, "RIGHT", -4, 0)
-    row.valueDpsText:SetWidth(52)
+    row.valueDpsText:SetWidth(44)
     row.valueDpsText:SetJustifyH("RIGHT")
     row.valueDpsText:SetTextColor(1, 1, 1)
     row.valueDpsText:SetShadowOffset(1, -1)
@@ -341,8 +366,8 @@ local function CreateBarRow(parent)
 
     row.valueMainText = row.textLayer:CreateFontString(nil, "OVERLAY")
     row.valueMainText:SetFont(STANDARD_TEXT_FONT, 11)
-    row.valueMainText:SetPoint("RIGHT", row.valueDpsText, "LEFT", -8, 0)
-    row.valueMainText:SetWidth(72)
+    row.valueMainText:SetPoint("RIGHT", row.valueDpsText, "LEFT", -6, 0)
+    row.valueMainText:SetWidth(76)
     row.valueMainText:SetJustifyH("RIGHT")
     row.valueMainText:SetTextColor(1, 1, 1)
     row.valueMainText:SetShadowOffset(1, -1)
@@ -383,7 +408,7 @@ local function CreateTextRow(parent)
     row.valueDpsText = row:CreateFontString(nil, "OVERLAY")
     row.valueDpsText:SetFont(STANDARD_TEXT_FONT, 11, "OUTLINE")
     row.valueDpsText:SetPoint("RIGHT", row, "RIGHT", -2, 0)
-    row.valueDpsText:SetWidth(50)
+    row.valueDpsText:SetWidth(42)
     row.valueDpsText:SetJustifyH("RIGHT")
     row.valueDpsText:SetTextColor(1, 1, 1)
     row.valueDpsText:SetShadowOffset(1, -1)
@@ -391,8 +416,8 @@ local function CreateTextRow(parent)
 
     row.valueMainText = row:CreateFontString(nil, "OVERLAY")
     row.valueMainText:SetFont(STANDARD_TEXT_FONT, 11)
-    row.valueMainText:SetPoint("RIGHT", row.valueDpsText, "LEFT", -8, 0)
-    row.valueMainText:SetWidth(66)
+    row.valueMainText:SetPoint("RIGHT", row.valueDpsText, "LEFT", -6, 0)
+    row.valueMainText:SetWidth(70)
     row.valueMainText:SetJustifyH("RIGHT")
     row.valueMainText:SetTextColor(1, 1, 1)
     row.valueMainText:SetShadowOffset(1, -1)
@@ -420,20 +445,9 @@ function addon:GetPanelVisibleRowCount(frame)
     end
 
     local rowHeight = GetPanelRowHeight(frame.cfg.type)
-    local mode = frame.cfg.mode
-
-    local hasBossHistory = false
-    if mode == "boss" and self.GetBossHistory then
-        local history = self:GetBossHistory() or {}
-        hasBossHistory = #history > 0
-    end
-
     local height = frame:GetHeight() or PANEL_DEFAULT_HEIGHT
     local top = HEADER_HEIGHT + CONTENT_PADDING + 2
     local bottom = TAB_HEIGHT + TAB_BOTTOM_INSET + CONTENT_PADDING + 6
-    if mode == "boss" and hasBossHistory then
-        bottom = bottom + BOSS_LIST_HEIGHT + 6
-    end
 
     local available = height - top - bottom
     local visible = floor((available + ROW_SPACING) / (rowHeight + ROW_SPACING))
@@ -472,7 +486,7 @@ function addon:EnsurePanelRows(frame)
 end
 
 function addon:FormatValueWithDPS(value, dps)
-    return self:AbbrevNumber(value) .. "   (" .. self:AbbrevNumber(dps) .. "/s)"
+    return self:AbbrevNumber(value) .. "   " .. self:AbbrevNumber(dps) .. "/s"
 end
 
 function addon:SetRowValueTexts(row, value, dps)
@@ -481,7 +495,7 @@ function addon:SetRowValueTexts(row, value, dps)
     end
 
     local mainText = self:AbbrevNumber(value or 0)
-    local dpsText = "(" .. self:AbbrevNumber(dps or 0) .. "/s)"
+    local dpsText = self:AbbrevNumber(dps or 0) .. "/s"
 
     if row.valueMainText then
         if row._smMainText ~= mainText then
@@ -510,7 +524,7 @@ function addon:FormatPercent(value, total)
     return string.format("%.1f%%", (value / total) * 100)
 end
 
-function addon:ShowBreakdownLines(totalDamage, spells, pets)
+function addon:ShowBreakdownLines(totalDamage, spells, petSpells, pets)
     if not GameTooltip then
         return
     end
@@ -525,17 +539,30 @@ function addon:ShowBreakdownLines(totalDamage, spells, pets)
         for i = 1, maxLines do
             local entry = spells[i]
             local label = IconMarkup(entry.icon) .. (entry.name or UNKNOWNOBJECT)
-            if entry.petName and entry.petName ~= "" then
-                label = label .. " |cff9a9a9a(" .. entry.petName .. ")|r"
-            end
             local value = self:AbbrevNumber(entry.amount) .. " (" .. self:FormatPercent(entry.amount, totalDamage) .. ")"
             GameTooltip:AddDoubleLine(label, value, 0.90, 0.90, 0.90, 0.95, 0.95, 0.95)
         end
     end
 
+    if petSpells and #petSpells > 0 then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Pet Abilities", 0.55, 0.90, 1.00)
+
+        local maxPetSpells = min(6, #petSpells)
+        for i = 1, maxPetSpells do
+            local entry = petSpells[i]
+            local label = IconMarkup(entry.icon) .. (entry.name or UNKNOWNOBJECT)
+            if entry.petName and entry.petName ~= "" then
+                label = label .. " |cff9a9a9a(" .. entry.petName .. ")|r"
+            end
+            local value = self:AbbrevNumber(entry.amount) .. " (" .. self:FormatPercent(entry.amount, totalDamage) .. ")"
+            GameTooltip:AddDoubleLine(label, value, 0.85, 0.95, 1.0, 0.92, 0.95, 1.0)
+        end
+    end
+
     if pets and #pets > 0 then
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Pet Damage", 0.55, 0.90, 1.00)
+        GameTooltip:AddLine("Pet Totals", 0.55, 0.90, 1.00)
 
         local maxPets = min(4, #pets)
         for i = 1, maxPets do
@@ -580,7 +607,7 @@ function addon:ShowRowTooltip(row)
     GameTooltip:AddDoubleLine("Damage", self:AbbrevNumber(damage), 0.90, 0.90, 0.90, 1, 1, 1)
     GameTooltip:AddDoubleLine("DPS", self:AbbrevNumber(dps), 0.90, 0.90, 0.90, 1, 1, 1)
 
-    self:ShowBreakdownLines(damage, tooltipData.spells, tooltipData.pets)
+    self:ShowBreakdownLines(damage, tooltipData.spells, tooltipData.petSpells, tooltipData.pets)
 
     GameTooltip:Show()
 end
@@ -604,9 +631,9 @@ local function ApplyPanelLock(frame)
 
     if frame.lockButton and frame.lockButton.icon then
         if locked then
-            frame.lockButton.icon:SetTexture(LOCKED_TEXTURE)
+            SetHeaderButtonIcon(frame.lockButton, LOCKED_TEXTURE, 21, 1.0, 0.82, 0.20, 0.90, 0)
         else
-            frame.lockButton.icon:SetTexture(UNLOCKED_TEXTURE)
+            SetHeaderButtonIcon(frame.lockButton, UNLOCKED_TEXTURE, 21, 1.0, 0.82, 0.20, 0.90, 0)
         end
     end
 end
@@ -657,6 +684,81 @@ local function SetPanelMode(addonRef, frame, mode)
     end
 end
 
+local function ShowSimpleTooltip(owner, title, line)
+    if not GameTooltip then
+        return
+    end
+
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    GameTooltip:SetText(title, 1, 1, 1)
+    if line then
+        GameTooltip:AddLine(line, 0.75, 1.00, 0.75)
+    end
+    GameTooltip:Show()
+end
+
+local function CreateHeaderIconButton(parent, iconTexture, tooltipTitle, tooltipLine)
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(HEADER_BUTTON_SIZE, HEADER_BUTTON_SIZE)
+
+    button.icon = button:CreateTexture(nil, "OVERLAY")
+    button.icon:SetTexture(iconTexture)
+    button.icon:SetSize(HEADER_ICON_SIZE, HEADER_ICON_SIZE)
+    button.icon:SetPoint("CENTER", button, "CENTER", 0, 0)
+
+    button.highlight = button:CreateTexture(nil, "HIGHLIGHT")
+    button.highlight:SetTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
+    button.highlight:SetBlendMode("ADD")
+    button.highlight:SetAlpha(0.60)
+    button.highlight:SetSize(HEADER_BUTTON_SIZE, HEADER_BUTTON_SIZE)
+    button.highlight:SetPoint("CENTER", button, "CENTER", 0, 0)
+
+    button:SetScript("OnEnter", function(selfButton)
+        if selfButton.icon then
+            selfButton.icon:SetAlpha(1)
+        end
+        ShowSimpleTooltip(selfButton, tooltipTitle, tooltipLine)
+    end)
+    button:SetScript("OnLeave", function()
+        if GameTooltip then
+            GameTooltip:Hide()
+        end
+        button.icon:SetAlpha(button._smIconAlpha or 0.90)
+    end)
+    button:SetScript("OnMouseDown", function(selfButton, mouseButton)
+        if mouseButton == "LeftButton" and selfButton.icon then
+            selfButton.icon:SetPoint("CENTER", selfButton, "CENTER", 1, (selfButton._smIconOffsetY or -1) - 1)
+        end
+    end)
+    button:SetScript("OnMouseUp", function(selfButton)
+        if selfButton.icon then
+            selfButton.icon:SetPoint("CENTER", selfButton, "CENTER", 0, selfButton._smIconOffsetY or -1)
+        end
+    end)
+
+    return button
+end
+
+SetHeaderButtonIcon = function(button, texture, size, r, g, b, alpha, offsetY)
+    if not button or not button.icon then
+        return
+    end
+
+    size = size or HEADER_ICON_SIZE
+    button.icon:SetTexture(texture)
+    button.icon:ClearAllPoints()
+    button.icon:SetSize(size, size)
+    button._smIconOffsetY = offsetY or -1
+    button.icon:SetPoint("CENTER", button, "CENTER", 0, button._smIconOffsetY)
+    if r and g and b then
+        button.icon:SetVertexColor(r, g, b)
+    else
+        button.icon:SetVertexColor(1, 1, 1)
+    end
+    button._smIconAlpha = alpha or 0.90
+    button.icon:SetAlpha(button._smIconAlpha)
+end
+
 local function UpdateBossList(addonRef, frame)
     if not frame or not frame.bossList or not frame.cfg then
         return nil
@@ -664,6 +766,7 @@ local function UpdateBossList(addonRef, frame)
 
     local history = addonRef:GetBossHistory() or {}
     if frame.cfg.mode ~= "boss" or #history == 0 then
+        frame.bossVisibleCount = 0
         frame.bossList:Hide()
         for i = 1, BOSS_BUTTON_COUNT do
             local btn = frame.bossButtons and frame.bossButtons[i]
@@ -676,6 +779,17 @@ local function UpdateBossList(addonRef, frame)
         return nil
     end
 
+    local visibleCount = min(BOSS_BUTTON_COUNT, #history)
+    local maxOffset = max(0, #history - visibleCount)
+    local offset = tonumber(frame.cfg.bossScrollOffset) or 0
+    offset = max(0, min(maxOffset, floor(offset + 0.5)))
+    frame.cfg.bossScrollOffset = offset
+    frame.bossVisibleCount = visibleCount
+
+    frame.bossList:ClearAllPoints()
+    frame.bossList:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, 1)
+    frame.bossList:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, 1)
+    frame.bossList:SetHeight(GetBossListHeightForCount(BOSS_BUTTON_COUNT) + 6)
     frame.bossList:Show()
 
     local selectedId = frame.cfg.selectedBossId
@@ -696,7 +810,7 @@ local function UpdateBossList(addonRef, frame)
 
     for i = 1, BOSS_BUTTON_COUNT do
         local btn = frame.bossButtons[i]
-        local entry = history[i]
+        local entry = (i <= visibleCount) and history[offset + i] or nil
 
         if entry then
             btn.entryId = entry.id
@@ -739,46 +853,37 @@ local function CreateHeader(addonRef, frame)
     separator:SetHeight(1)
     separator:SetVertexColor(0.58, 0.50, 0.30, 0.65)
 
-    local title = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    frame.title = title
-    title:SetPoint("LEFT", header, "LEFT", 7, 0)
-    title:SetText("SimpleMeters")
-    title:SetTextColor(1.0, 0.82, 0.0)
-    title:SetShadowOffset(1, -1)
-    title:SetShadowColor(0, 0, 0, 1)
-
-    local closeButton = CreateFrame("Button", nil, header, "UIPanelButtonTemplate")
+    local closeButton = CreateHeaderIconButton(header, "Interface\\Buttons\\UI-StopButton", "Close", "Remove this panel")
     frame.closeButton = closeButton
-    closeButton:SetSize(CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE)
-    closeButton:SetPoint("TOPRIGHT", header, "TOPRIGHT", -1, -1)
-    closeButton:SetText("x")
-    closeButton:SetNormalFontObject(GameFontNormalSmall)
-    closeButton:SetHighlightFontObject(GameFontHighlightSmall)
-    closeButton:SetPushedTextOffset(0, 0)
+    closeButton:SetPoint("RIGHT", header, "RIGHT", -3, 0)
+    SetHeaderButtonIcon(closeButton, "Interface\\Buttons\\UI-StopButton", 14, 1.0, 0.88, 0.16, 0.80, -1)
     closeButton:SetScript("OnClick", function()
         addonRef:DestroyPanel(frame.cfg.id)
     end)
 
-    local resetButton = CreateFrame("Button", nil, header, "UIPanelButtonTemplate")
+    local resetButton = CreateHeaderIconButton(header, "Interface\\Buttons\\UI-RefreshButton", "Reset", "Reset all meter data")
     frame.resetButton = resetButton
-    resetButton:SetSize(SMALL_BUTTON_SIZE, SMALL_BUTTON_SIZE)
-    resetButton:SetPoint("RIGHT", closeButton, "LEFT", -2, 0)
-    resetButton:SetText("R")
-    resetButton:SetNormalFontObject(GameFontNormalSmall)
-    resetButton:SetHighlightFontObject(GameFontHighlightSmall)
-    resetButton:SetPushedTextOffset(0, 0)
+    resetButton:SetPoint("RIGHT", closeButton, "LEFT", 0, 0)
+    SetHeaderButtonIcon(resetButton, "Interface\\Buttons\\UI-RefreshButton", 13, 1.0, 0.84, 0.08, 0.78, -1)
     resetButton:SetScript("OnClick", function()
         addonRef:PromptReset("Are you sure you want to reset SimpleMeters?")
     end)
 
-    local lockButton = CreateFrame("Button", nil, header, "UIPanelButtonTemplate")
+    local lockButton = CreateHeaderIconButton(header, UNLOCKED_TEXTURE, "Lock", "Lock or unlock panel movement")
     frame.lockButton = lockButton
-    lockButton:SetSize(SMALL_BUTTON_SIZE, SMALL_BUTTON_SIZE)
-    lockButton:SetPoint("RIGHT", resetButton, "LEFT", -2, 0)
-    lockButton:SetText("")
-    lockButton.icon = lockButton:CreateTexture(nil, "ARTWORK")
-    lockButton.icon:SetPoint("TOPLEFT", lockButton, "TOPLEFT", 2, -2)
-    lockButton.icon:SetPoint("BOTTOMRIGHT", lockButton, "BOTTOMRIGHT", -2, 2)
+    lockButton:SetPoint("LEFT", header, "LEFT", 3, 0)
+    SetHeaderButtonIcon(lockButton, UNLOCKED_TEXTURE, 21, 1.0, 0.82, 0.20, 0.90, 0)
+
+    local title = header:CreateFontString(nil, "OVERLAY")
+    frame.title = title
+    title:SetFont(STANDARD_TEXT_FONT, 10)
+    title:SetPoint("LEFT", header, "LEFT", 24, -1)
+    title:SetPoint("RIGHT", resetButton, "LEFT", -8, -1)
+    title:SetJustifyH("LEFT")
+    title:SetText("SimpleMeters")
+    title:SetTextColor(1.0, 0.82, 0.0)
+    title:SetShadowOffset(1, -1)
+    title:SetShadowColor(0, 0, 0, 1)
 
     lockButton:SetScript("OnClick", function()
         frame.cfg.locked = not frame.cfg.locked
@@ -791,16 +896,11 @@ local function CreateHeader(addonRef, frame)
     end)
 
     lockButton:SetScript("OnEnter", function(selfButton)
-        if not GameTooltip then
-            return
-        end
-        GameTooltip:SetOwner(selfButton, "ANCHOR_RIGHT")
         if frame.cfg.locked then
-            GameTooltip:SetText("Unlock", 1, 1, 1)
+            ShowSimpleTooltip(selfButton, "Unlock", "Allow moving and resizing")
         else
-            GameTooltip:SetText("Lock", 1, 1, 1)
+            ShowSimpleTooltip(selfButton, "Lock", "Prevent moving and resizing")
         end
-        GameTooltip:Show()
     end)
 
     lockButton:SetScript("OnLeave", function()
@@ -868,15 +968,54 @@ local function CreateTabs(addonRef, frame)
 end
 
 local function CreateBossList(addonRef, frame)
-    local bossList = CreateFrame("Frame", nil, frame)
+    local bossList = CreateFrame("Frame", nil, frame, BACKDROP_TEMPLATE)
     frame.bossList = bossList
-    bossList:SetHeight(BOSS_LIST_HEIGHT)
-    bossList:SetPoint("BOTTOM", frame, "BOTTOM", 0, TAB_BOTTOM_INSET + TAB_HEIGHT + 6)
-    bossList:SetWidth((frame:GetWidth() or PANEL_DEFAULT_WIDTH) - 20)
+    bossList:SetHeight(GetBossListHeightForCount(BOSS_BUTTON_COUNT) + 6)
+    bossList:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, 1)
+    bossList:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, 1)
+    bossList:SetFrameLevel((frame:GetFrameLevel() or 1) + 1)
+    bossList:EnableMouse(true)
+    bossList:EnableMouseWheel(true)
+
+    if bossList.SetBackdrop then
+        bossList:SetBackdrop({
+            bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true,
+            tileSize = 16,
+            edgeSize = 12,
+            insets = { left = 3, right = 3, top = 3, bottom = 3 },
+        })
+        bossList:SetBackdropColor(0.02, 0.02, 0.02, 0.52)
+        bossList:SetBackdropBorderColor(0.55, 0.55, 0.55, 0.90)
+    end
 
     local title = bossList:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    title:SetPoint("TOP", bossList, "TOP", 0, -4)
+    bossList.title = title
+    title:SetPoint("TOP", bossList, "TOP", 0, -7)
     title:SetText("Boss Kills")
+
+    bossList:SetScript("OnMouseWheel", function(_, delta)
+        local history = addonRef:GetBossHistory() or {}
+        if #history <= BOSS_BUTTON_COUNT then
+            return
+        end
+
+        local visibleCount = frame.bossVisibleCount or BOSS_BUTTON_COUNT
+        local maxOffset = max(0, #history - visibleCount)
+        local offset = tonumber(frame.cfg.bossScrollOffset) or 0
+        if delta < 0 then
+            offset = offset + 1
+        else
+            offset = offset - 1
+        end
+        frame.cfg.bossScrollOffset = max(0, min(maxOffset, offset))
+        MarkRenderDirty(addonRef)
+        addonRef:OnUITick(false)
+        if addonRef.WakeUITicker then
+            addonRef:WakeUITicker()
+        end
+    end)
 
     frame.bossButtons = {}
     for i = 1, BOSS_BUTTON_COUNT do
@@ -884,8 +1023,8 @@ local function CreateBossList(addonRef, frame)
         frame.bossButtons[i] = btn
 
         btn:SetHeight(BOSS_BUTTON_HEIGHT)
-        btn:SetPoint("LEFT", bossList, "LEFT", 10, 0)
-        btn:SetPoint("RIGHT", bossList, "RIGHT", -10, 0)
+        btn:SetPoint("LEFT", bossList, "LEFT", 12, 0)
+        btn:SetPoint("RIGHT", bossList, "RIGHT", -12, 0)
 
         if i == 1 then
             btn:SetPoint("TOP", title, "BOTTOM", 0, -3)
@@ -1031,10 +1170,6 @@ function addon:CreatePanel(panel)
         panel.size.width = floor(clampedW + 0.5)
         panel.size.height = floor(clampedH + 0.5)
 
-        if selfFrame.bossList then
-            selfFrame.bossList:SetWidth(max(120, clampedW - 20))
-        end
-
         addon:EnsurePanelRows(selfFrame)
         MarkRenderDirty(addon)
     end)
@@ -1175,6 +1310,52 @@ function addon:ToggleAllPanels()
 
     local anyShown = self:GetAnyPanelShown()
     local show = not anyShown
+
+    for i = 1, #panels do
+        local panel = panels[i]
+        panel.shown = show
+
+        local frame = self.panelFrames and self.panelFrames[panel.id]
+        if show then
+            if not frame then
+                frame = self:CreatePanel(panel)
+            end
+            if frame then
+                frame:Show()
+            end
+        else
+            if frame then
+                frame:Hide()
+            end
+        end
+    end
+
+    if show then
+        MarkRenderDirty(self)
+        self:OnUITick(false)
+        if self.WakeUITicker then
+            self:WakeUITicker()
+        end
+    end
+
+    return show
+end
+
+function addon:SetAllPanelsShown(show)
+    if not self.db then
+        return false
+    end
+
+    show = show == true
+
+    local panels = self.db.panels
+    if type(panels) ~= "table" or #panels == 0 then
+        if show then
+            local ok = self:SpawnPanel(PANEL_TYPE_BARS)
+            return ok and true or false
+        end
+        return false
+    end
 
     for i = 1, #panels do
         local panel = panels[i]
@@ -1716,6 +1897,9 @@ function addon:OnUITick(force)
     if self.ProcessPendingBossKills then
         self:ProcessPendingBossKills(2)
     end
+    if self.SavePersistedCombat then
+        self:SavePersistedCombat(false)
+    end
 
     local dataDirty = state.dataDirty == true or state.dirty == true
     local renderDirty = state.renderDirty == true or state.uiDirty == true
@@ -1876,6 +2060,7 @@ function addon:CreateMinimapButton()
             selfButton.dragged = false
             return
         end
+
         addon:ToggleAllPanels()
     end)
 

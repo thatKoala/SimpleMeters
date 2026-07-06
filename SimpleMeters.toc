@@ -4,7 +4,6 @@
 ## Author: paul@thatkoala.com
 ## IconTexture: Interface\Icons\Spell_Fire_Fireball02
 ## SavedVariables: SimpleMetersDB
-## SHA-256: <pending until final build>
 
 SimpleMeters.lua
 SimpleMeters_Util.lua

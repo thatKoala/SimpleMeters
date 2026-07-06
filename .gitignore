@@ -3,7 +3,11 @@ AGENTS.md
 AGENTS.local.md
 
 # Local release/build artifacts
-builds/
+builds/*
+!builds/latest/
+!builds/latest/CHANGELOG.md
+!builds/latest/SimpleMeters-v*.zip
+!builds/latest/SHA256.txt
 /ChangeLog/
 /*.zip
 /SimpleMetersDev.toc

@@ -63,7 +63,7 @@ v0.4 is a lightweight reliability and UI polish release focused on keeping Simpl
 
 Release integrity:
 
-- SHA-256: `<pending until final ZIP>`
+- `SimpleMeters-v0.4.zip` SHA-256: `391276d1ea3f2d8762c121efb0b2c429f57db1da5ccce3c2abe827087eefdd93`
 
 Author: `paul@thatkoala.com`
 

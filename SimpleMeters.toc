@@ -1,4 +1,4 @@
-## Interface: 11508, 20505
+## Interface: 11508, 20505, 20506
 ## Title: SimpleMeters |cff66c6ffv0.4|r
 ## Notes: Lightweight stock-style meters for Classic Era, Season of Discovery, and TBC Classic.
 ## Author: paul@thatkoala.com

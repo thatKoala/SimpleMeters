@@ -33,11 +33,11 @@ v0.4 focuses on combat reliability, cleaner attribution, safer persistence, and 
 ### Compatibility
 
 - Classic Era and Season of Discovery interface `11508`.
-- TBC Classic / Anniversary progression interface `20505`.
+- TBC Classic / Anniversary progression interfaces `20505` and `20506`.
 
 ### Build Integrity
 
-- `SimpleMeters-v0.4.zip` SHA-256: `391276d1ea3f2d8762c121efb0b2c429f57db1da5ccce3c2abe827087eefdd93`
+- `SimpleMeters-v0.4.zip` SHA-256: `e498ee32982aac522c484a993e66fb4fc5600ad6dc5fa9ac98033c53eb5059dd`
 
 ## v0.3 - Background Reliability
 

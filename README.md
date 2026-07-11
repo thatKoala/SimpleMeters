@@ -45,7 +45,7 @@ SimpleMeters is designed so DPS remains practical and stable:
 ## Compatibility
 
 - Classic Era and Season of Discovery (`1.15.8`, interface `11508`)
-- Burning Crusade Classic / Anniversary progression (`2.5.x`, interface `20505`)
+- Burning Crusade Classic / Anniversary progression (`2.5.x`, interfaces `20505` and `20506`)
 
 ## v0.4 Patch Notes
 
@@ -59,11 +59,11 @@ v0.4 is a lightweight reliability and UI polish release focused on keeping Simpl
 - Slash commands now include explicit show, hide, toggle, and minimap controls.
 - Header controls and damage rows were polished for a cleaner stock-UI feel.
 - Damage row borders now draw over the bar fill, improving the rounded-edge look.
-- TOC compatibility is prepared for Classic Era / Season of Discovery interface `11508` and TBC Classic interface `20505`.
+- TOC compatibility is prepared for Classic Era / Season of Discovery interface `11508` and TBC Classic interfaces `20505` and `20506`.
 
 Release integrity:
 
-- `SimpleMeters-v0.4.zip` SHA-256: `391276d1ea3f2d8762c121efb0b2c429f57db1da5ccce3c2abe827087eefdd93`
+- `SimpleMeters-v0.4.zip` SHA-256: `e498ee32982aac522c484a993e66fb4fc5600ad6dc5fa9ac98033c53eb5059dd`
 
 Author: `paul@thatkoala.com`
 

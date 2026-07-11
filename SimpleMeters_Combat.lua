@@ -1,4 +1,4 @@
--- SimpleMeters v0.4
+-- SimpleMeters v0.41
 -- Build date: 2026-03-02
 
 local addon = _G.SimpleMeters

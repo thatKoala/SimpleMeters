@@ -1,8 +1,8 @@
 # SimpleMeters Changelog
 
-## v0.4 - Combat Reliability + UI Polish
+## v0.41 - Combat Reliability + UI Polish
 
-v0.4 focuses on combat reliability, cleaner attribution, safer persistence, and a more stock-feeling interface.
+v0.41 focuses on combat reliability, cleaner attribution, safer persistence, and a more stock-feeling interface.
 
 ### Combat Reliability
 
@@ -37,7 +37,7 @@ v0.4 focuses on combat reliability, cleaner attribution, safer persistence, and 
 
 ### Build Integrity
 
-- `SimpleMeters-v0.4.zip` SHA-256: `e498ee32982aac522c484a993e66fb4fc5600ad6dc5fa9ac98033c53eb5059dd`
+- `SimpleMeters-v0.41.zip` SHA-256: `60542aa39041d4b5ddc78d4dffbadbcfd374ef618a5126bb556754273b31007a`
 
 ## v0.3 - Background Reliability
 

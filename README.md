@@ -47,9 +47,9 @@ SimpleMeters is designed so DPS remains practical and stable:
 - Classic Era and Season of Discovery (`1.15.8`, interface `11508`)
 - Burning Crusade Classic / Anniversary progression (`2.5.x`, interfaces `20505` and `20506`)
 
-## v0.4 Patch Notes
+## v0.41 Patch Notes
 
-v0.4 is a lightweight reliability and UI polish release focused on keeping SimpleMeters dependable during real dungeon and raid play.
+v0.41 is a lightweight reliability and UI polish release focused on keeping SimpleMeters dependable during real dungeon and raid play.
 
 - Combat data is saved more safely during logout, zoning, and longer fights.
 - Damage attribution is stricter for group members, pets, guardians, reactive damage, and self-damage edge cases.
@@ -63,7 +63,7 @@ v0.4 is a lightweight reliability and UI polish release focused on keeping Simpl
 
 Release integrity:
 
-- `SimpleMeters-v0.4.zip` SHA-256: `e498ee32982aac522c484a993e66fb4fc5600ad6dc5fa9ac98033c53eb5059dd`
+- `SimpleMeters-v0.41.zip` SHA-256: `60542aa39041d4b5ddc78d4dffbadbcfd374ef618a5126bb556754273b31007a`
 
 Author: `paul@thatkoala.com`
 

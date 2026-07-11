@@ -1,4 +1,4 @@
--- SimpleMeters v0.4
+-- SimpleMeters v0.41
 -- Build date: 2026-03-02
 
 local addonName = ...
@@ -17,7 +17,7 @@ local strlower = string.lower
 local GetTime = GetTime
 local tremove = table.remove
 
-local VERSION = "0.4"
+local VERSION = "0.41"
 local RESET_POPUP_ID = "SIMPLEMETERS_CONFIRM_RESET"
 local CHAT_PREFIX = "|cff66c6ff[SimpleMeters]|r "
 

@@ -1,5 +1,5 @@
--- SimpleMeters v0.41
--- Build date: 2026-03-02
+-- SimpleMeters v0.5
+-- Build date: 2026-07-18
 
 local addon = _G.SimpleMeters
 if not addon then

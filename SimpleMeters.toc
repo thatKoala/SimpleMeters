@@ -1,5 +1,5 @@
 ## Interface: 11508, 20505, 20506
-## Title: SimpleMeters |cff66c6ffv0.41|r
+## Title: SimpleMeters |cff66c6ffv0.5|r
 ## Notes: Lightweight stock-style meters for Classic Era, Season of Discovery, and TBC Classic.
 ## Author: paul@thatkoala.com
 ## IconTexture: Interface\Icons\Spell_Fire_Fireball02

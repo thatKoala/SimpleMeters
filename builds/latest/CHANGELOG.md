@@ -1,5 +1,37 @@
 # SimpleMeters Changelog
 
+## v0.5 - Responsive Reset + Performance
+
+v0.5 focuses on immediate UI behavior, more compact layouts, and lower overhead as combat history grows.
+
+### Fixes
+
+- Reset now clears Total, Fight, and Boss displays immediately without requiring a tab change.
+- Fixes a roster-refresh error that could occur while loading existing saved combat data.
+- Reset removes old actor and spell tables completely instead of retaining empty historical records.
+- Boss history and selected snapshots clear immediately with the rest of the meter data.
+
+### Layout
+
+- Reduces the minimum panel width from 240px to 220px.
+- Keeps enough room for the three bottom tabs, damage values, DPS values, and header controls at minimum width.
+
+### Performance
+
+- Periodic combat saves now copy only actors and spell metadata that changed since the previous save.
+- Boss history is recopied only when boss history changes or a forced zoning/logout save is requested.
+- Removes redundant ranking rebuilds during combat periods with no new damage.
+- Removes unused formatting, animation, table, and GUID lookup bookkeeping code.
+
+### Compatibility
+
+- Classic Era and Season of Discovery interface `11508`.
+- TBC Classic / Anniversary progression interfaces `20505` and `20506`.
+
+### Build Integrity
+
+- `SimpleMeters-v0.5.zip` SHA-256: `28bf0b5e503c0f5df996306f860b6311e3100e27525a34ec281e4dddacda574e`
+
 ## v0.41 - Combat Reliability + UI Polish
 
 v0.41 focuses on combat reliability, cleaner attribution, safer persistence, and a more stock-feeling interface.

@@ -1,5 +1,5 @@
--- SimpleMeters v0.41
--- Build date: 2026-03-02
+-- SimpleMeters v0.5
+-- Build date: 2026-07-18
 
 local addonName = ...
 local addon = _G.SimpleMeters or {}
@@ -15,9 +15,8 @@ local min = math.min
 local tonumber = tonumber
 local strlower = string.lower
 local GetTime = GetTime
-local tremove = table.remove
 
-local VERSION = "0.41"
+local VERSION = "0.5"
 local RESET_POPUP_ID = "SIMPLEMETERS_CONFIRM_RESET"
 local CHAT_PREFIX = "|cff66c6ff[SimpleMeters]|r "
 
@@ -80,7 +79,7 @@ local function ClampPanelSize(size)
     local width = tonumber(size and size.width) or 252
     local height = tonumber(size and size.height) or 236
 
-    width = max(240, min(460, floor(width + 0.5)))
+    width = max(220, min(460, floor(width + 0.5)))
     height = max(160, min(700, floor(height + 0.5)))
 
     return width, height

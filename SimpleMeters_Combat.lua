@@ -1,5 +1,5 @@
--- SimpleMeters v0.41
--- Build date: 2026-03-02
+-- SimpleMeters v0.5
+-- Build date: 2026-07-18
 
 local addon = _G.SimpleMeters
 if not addon then
@@ -66,9 +66,11 @@ state.pendingGUIDLookupQueue = state.pendingGUIDLookupQueue or {}
 state.pendingGUIDLookupHead = tonumber(state.pendingGUIDLookupHead) or 1
 state.pendingGUIDLookupTail = tonumber(state.pendingGUIDLookupTail) or 0
 state.pendingGUIDLookup = state.pendingGUIDLookupSet
-state.guidLookupAttempted = state.guidLookupAttempted or {}
 state.guidLookupRetryAt = state.guidLookupRetryAt or {}
 state.spellMeta = state.spellMeta or {}
+state.persistDirtyActors = state.persistDirtyActors or {}
+state.persistDirtySpellMeta = state.persistDirtySpellMeta or {}
+state.persistBossHistoryDirty = state.persistBossHistoryDirty == true
 
 state.bossHistory = state.bossHistory or {}
 state.activeBossGUIDs = state.activeBossGUIDs or {}
@@ -156,7 +158,6 @@ local function QueueGUIDLookup(guid)
 
     -- Class fallback is only meaningful for player GUIDs.
     if not IsPlayerGUID(guid) then
-        state.guidLookupAttempted[guid] = true
         return
     end
 
@@ -246,6 +247,7 @@ end
 
 local function EnsureSpellMeta(key, name, icon, spellId)
     local meta = state.spellMeta[key]
+    local changed = false
     if not meta then
         meta = {
             name = name,
@@ -253,16 +255,24 @@ local function EnsureSpellMeta(key, name, icon, spellId)
             spellId = spellId,
         }
         state.spellMeta[key] = meta
+        changed = true
     else
         if name and not meta.name then
             meta.name = name
+            changed = true
         end
         if icon and not meta.icon then
             meta.icon = icon
+            changed = true
         end
         if spellId and not meta.spellId then
             meta.spellId = spellId
+            changed = true
         end
+    end
+
+    if changed then
+        state.persistDirtySpellMeta[key] = true
     end
 
     return meta
@@ -281,6 +291,7 @@ end
 local function GetOrCreateActor(guid, fallbackName)
     local actor = state.actors[guid]
     if actor then
+        actor.guid = actor.guid or guid
         if fallbackName and (not actor.name or actor.name == UNKNOWNOBJECT) then
             actor.name = fallbackName
         end
@@ -307,6 +318,7 @@ local function GetOrCreateActor(guid, fallbackName)
 
     local classFile = state.rosterClassByGUID[guid]
     actor = {
+        guid = guid,
         name = state.rosterNameByGUID[guid] or fallbackName or UNKNOWNOBJECT,
         classFile = classFile,
         color = classFile and state.rosterColorByGUID[guid] or nil,
@@ -404,6 +416,7 @@ local function AddDamage(actor, amount, spellKey, spellName, spellIcon, spellId,
     AddPetSpellDamage(actor, spellKey, petName, amount)
 
     state.persistDirty = true
+    state.persistDirtyActors[actor.guid] = true
     MarkDataDirty()
 end
 
@@ -483,13 +496,19 @@ local function UpdateUnitCache(unit)
 
     local actor = state.actors[guid]
     if actor then
-        if name then
+        local actorChanged = false
+        if name and actor.name ~= name then
             actor.name = name
+            actorChanged = true
         end
-        if classFile then
+        if classFile and actor.classFile ~= classFile then
             actor.classFile = classFile
             actor.color = state.rosterColorByGUID[guid]
-            state.guidLookupAttempted[guid] = nil
+            actorChanged = true
+        end
+        if actorChanged then
+            state.persistDirtyActors[guid] = true
+            state.persistDirty = true
         end
     end
 
@@ -521,17 +540,6 @@ local function CopyDamageMap(src)
         copy[key] = value
     end
     return copy
-end
-
-local function ClearNestedMap(map)
-    for key, value in pairs(map) do
-        if type(value) == "table" then
-            for subKey in pairs(value) do
-                value[subKey] = nil
-            end
-        end
-        map[key] = nil
-    end
 end
 
 local function CopyNestedDamageMap(src)
@@ -646,6 +654,7 @@ local function RecordBossKillNow(bossName, bossGUID, now)
     end
 
     state.persistDirty = true
+    state.persistBossHistoryDirty = true
     MarkDataDirty()
     MarkRenderDirty()
 end
@@ -660,6 +669,9 @@ function addon:ClearPersistedCombat()
     if self.db then
         self.db.combatPersist = nil
     end
+    ClearTable(state.persistDirtyActors)
+    ClearTable(state.persistDirtySpellMeta)
+    state.persistBossHistoryDirty = false
     state.persistDirty = false
     state.lastPersistAt = 0
 end
@@ -687,31 +699,53 @@ function addon:SavePersistedCombat(force)
         end
     end
 
-    local persist = {
-        version = PERSIST_VERSION,
-        resetAt = state.resetAt or GetTime(),
-        totalActiveTime = persistedActiveTime,
-        totalDamage = state.totalDamage or 0,
-        spellMeta = {},
-        actors = {},
-        bossHistory = {},
-        nextBossEntryId = state.nextBossEntryId or 1,
-        selectedBossId = state.selectedBossId,
-    }
+    local persist = self.db.combatPersist
+    local fullSync = force or type(persist) ~= "table" or persist.version ~= PERSIST_VERSION
+    if fullSync then
+        persist = {
+            version = PERSIST_VERSION,
+            spellMeta = {},
+            actors = {},
+            bossHistory = {},
+        }
+        self.db.combatPersist = persist
 
-    for key, meta in pairs(state.spellMeta or {}) do
+        for key in pairs(state.spellMeta) do
+            state.persistDirtySpellMeta[key] = true
+        end
+        for guid in pairs(state.actors) do
+            state.persistDirtyActors[guid] = true
+        end
+        state.persistBossHistoryDirty = true
+    end
+
+    persist.spellMeta = type(persist.spellMeta) == "table" and persist.spellMeta or {}
+    persist.actors = type(persist.actors) == "table" and persist.actors or {}
+    persist.bossHistory = type(persist.bossHistory) == "table" and persist.bossHistory or {}
+
+    persist.resetAt = state.resetAt or GetTime()
+    persist.totalActiveTime = persistedActiveTime
+    persist.totalDamage = state.totalDamage or 0
+    persist.nextBossEntryId = state.nextBossEntryId or 1
+    persist.selectedBossId = state.selectedBossId
+
+    for key in pairs(state.persistDirtySpellMeta) do
+        local meta = state.spellMeta[key]
         if type(meta) == "table" then
             persist.spellMeta[key] = {
                 name = meta.name,
                 icon = meta.icon,
                 spellId = meta.spellId,
             }
+        else
+            persist.spellMeta[key] = nil
         end
     end
 
-    for guid, actor in pairs(state.actors or {}) do
-        local totalDamage = tonumber(actor.totalDamage) or 0
-        if totalDamage > 0 then
+    for guid in pairs(state.persistDirtyActors) do
+        local actor = state.actors[guid]
+        local totalDamage = actor and tonumber(actor.totalDamage) or 0
+        if actor and totalDamage > 0 then
             persist.actors[guid] = {
                 name = actor.name,
                 classFile = actor.classFile,
@@ -720,42 +754,49 @@ function addon:SavePersistedCombat(force)
                 petTotal = CopyDamageMap(actor.petTotal),
                 petSpellTotal = CopyNestedDamageMap(actor.petSpellTotal),
             }
+        else
+            persist.actors[guid] = nil
         end
     end
 
-    for i = 1, #(state.bossHistory or {}) do
-        local entry = state.bossHistory[i]
-        if type(entry) == "table" then
-            local savedEntry = {
-                id = entry.id,
-                name = entry.name,
-                fightId = entry.fightId,
-                totalDamage = entry.totalDamage,
-                duration = entry.duration,
-                time = entry.time,
-                actors = {},
-            }
+    if state.persistBossHistoryDirty then
+        ClearTable(persist.bossHistory)
+        for i = 1, #state.bossHistory do
+            local entry = state.bossHistory[i]
+            if type(entry) == "table" then
+                local savedEntry = {
+                    id = entry.id,
+                    name = entry.name,
+                    fightId = entry.fightId,
+                    totalDamage = entry.totalDamage,
+                    duration = entry.duration,
+                    time = entry.time,
+                    actors = {},
+                }
 
-            for j = 1, #(entry.actors or {}) do
-                local actor = entry.actors[j]
-                if type(actor) == "table" then
-                    savedEntry.actors[#savedEntry.actors + 1] = {
-                        guid = actor.guid,
-                        name = actor.name,
-                        classFile = actor.classFile,
-                        damage = actor.damage,
-                        spells = CopyDamageMap(actor.spells),
-                        petSpells = CopyNestedDamageMap(actor.petSpells),
-                        pets = CopyDamageMap(actor.pets),
-                    }
+                for j = 1, #(entry.actors or {}) do
+                    local actor = entry.actors[j]
+                    if type(actor) == "table" then
+                        savedEntry.actors[#savedEntry.actors + 1] = {
+                            guid = actor.guid,
+                            name = actor.name,
+                            classFile = actor.classFile,
+                            damage = actor.damage,
+                            spells = CopyDamageMap(actor.spells),
+                            petSpells = CopyNestedDamageMap(actor.petSpells),
+                            pets = CopyDamageMap(actor.pets),
+                        }
+                    end
                 end
-            end
 
-            persist.bossHistory[#persist.bossHistory + 1] = savedEntry
+                persist.bossHistory[#persist.bossHistory + 1] = savedEntry
+            end
         end
     end
 
-    self.db.combatPersist = persist
+    ClearTable(state.persistDirtyActors)
+    ClearTable(state.persistDirtySpellMeta)
+    state.persistBossHistoryDirty = false
     state.persistDirty = false
     state.lastPersistAt = now
 end
@@ -788,7 +829,9 @@ function addon:RestorePersistedCombat()
     state.pendingGUIDLookupHead = 1
     state.pendingGUIDLookupTail = 0
     state.pendingGUIDLookup = state.pendingGUIDLookupSet
-    ClearTable(state.guidLookupAttempted)
+    ClearTable(state.persistDirtyActors)
+    ClearTable(state.persistDirtySpellMeta)
+    state.persistBossHistoryDirty = false
 
     state.inFight = false
     ClearPendingFinalize()
@@ -821,6 +864,7 @@ function addon:RestorePersistedCombat()
         if type(savedActor) == "table" then
             local classFile = savedActor.classFile
             local actor = {
+                guid = guid,
                 name = savedActor.name or state.rosterNameByGUID[guid] or UNKNOWNOBJECT,
                 classFile = classFile,
                 color = classFile and addon:GetClassColorTable(classFile) or nil,
@@ -1157,24 +1201,22 @@ function addon:ProcessPendingGUIDLookups(maxPerTick)
 
             state.pendingGUIDLookupSet[guid] = nil
             state.pendingGUIDLookup = state.pendingGUIDLookupSet
-            state.guidLookupAttempted[guid] = true
-
             local _, classFile = GetPlayerInfoByGUID(guid)
             if classFile then
                 state.rosterClassByGUID[guid] = classFile
                 local color = addon:GetClassColorTable(classFile)
                 state.rosterColorByGUID[guid] = color
-                state.guidLookupAttempted[guid] = nil
                 state.guidLookupRetryAt[guid] = nil
 
                 local actor = state.actors[guid]
                 if actor then
                     actor.classFile = classFile
                     actor.color = color
+                    state.persistDirtyActors[guid] = true
+                    state.persistDirty = true
                     MarkRenderDirty()
                 end
             else
-                state.guidLookupAttempted[guid] = nil
                 state.guidLookupRetryAt[guid] = now + 2
                 state.pendingGUIDLookupSet[guid] = true
                 state.pendingGUIDLookup = state.pendingGUIDLookupSet
@@ -1427,17 +1469,9 @@ function addon:ResetAll()
     state.resetAt = GetTime()
     state.persistDirty = true
 
-    for _, actor in pairs(state.actors) do
-        actor.totalDamage = 0
-        actor.fightDamage = 0
-        actor.lastSeenFightId = state.fightId
-        ClearTable(actor.spellTotal)
-        ClearTable(actor.spellFight)
-        ClearTable(actor.petTotal)
-        ClearTable(actor.petFight)
-        ClearNestedMap(actor.petSpellTotal)
-        ClearNestedMap(actor.petSpellFight)
-    end
+    ClearTable(state.actors)
+    ClearTable(state.spellMeta)
+    EnsureSpellMeta(0, "Melee", ICON_MELEE, nil)
 
     ClearTable(state.bossHistory)
     ClearTable(state.activeBossGUIDs)
@@ -1453,6 +1487,12 @@ function addon:ResetAll()
     MarkRenderDirty()
 
     self:ClearPersistedCombat()
+    self.modeCache = nil
+    if self.OnUITick then
+        self:OnUITick(true)
+    elseif self.WakeUITicker then
+        self:WakeUITicker()
+    end
 end
 
 function addon:DebugInjectFakeData()

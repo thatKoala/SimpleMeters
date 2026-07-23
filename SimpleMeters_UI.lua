@@ -1,5 +1,5 @@
--- SimpleMeters v0.41
--- Build date: 2026-03-02
+-- SimpleMeters v0.5
+-- Build date: 2026-07-18
 
 local addon = _G.SimpleMeters
 if not addon then
@@ -22,7 +22,6 @@ local sin = math.sin
 local rad = math.rad
 local deg = math.deg
 local atan = math.atan
-local tinsert = table.insert
 local tremove = table.remove
 local tonumber = tonumber
 local GetTime = GetTime
@@ -34,7 +33,7 @@ local BACKDROP_TEMPLATE = BackdropTemplateMixin and "BackdropTemplate" or nil
 local PANEL_TYPE_BARS = "bars"
 local PANEL_TYPE_TEXT = "text"
 
-local PANEL_MIN_WIDTH = 240
+local PANEL_MIN_WIDTH = 220
 local PANEL_MAX_WIDTH = 460
 local PANEL_MIN_HEIGHT = 160
 local PANEL_MAX_HEIGHT = 700
@@ -53,7 +52,6 @@ local TAB_BOTTOM_INSET = 6
 
 local HEADER_BUTTON_SIZE = 22
 local HEADER_ICON_SIZE = 16
-local HEADER_BUTTON_GAP = 4
 
 local BOSS_BUTTON_COUNT = 5
 local BOSS_BUTTON_HEIGHT = 13
@@ -483,10 +481,6 @@ function addon:EnsurePanelRows(frame)
     for i = rowCount + 1, #rows do
         rows[i]:Hide()
     end
-end
-
-function addon:FormatValueWithDPS(value, dps)
-    return self:AbbrevNumber(value) .. "   " .. self:AbbrevNumber(dps) .. "/s"
 end
 
 function addon:SetRowValueTexts(row, value, dps)
@@ -1476,7 +1470,7 @@ function addon:BuildModeCaches(now, opts)
     return self.modeCache
 end
 
-local function RenderBarRows(addonRef, frame, entries, rowLimit, duration, maxValue, instant)
+local function RenderBarRows(addonRef, frame, entries, rowLimit, duration, maxValue)
     local rows = frame.rows
     local rowCount = addonRef.db.rowCount or 8
 
@@ -1635,6 +1629,12 @@ end
 local function BuildBossEntriesForPanel(addonRef, frame, rowLimit)
     local selected = UpdateBossList(addonRef, frame)
     if not selected then
+        local oldEntries = frame.bossEntriesBuffer
+        if oldEntries then
+            for i = #oldEntries, 1, -1 do
+                oldEntries[i] = nil
+            end
+        end
         return nil
     end
 
@@ -1811,8 +1811,7 @@ function addon:RenderPanel(frame, now, modeCaches)
     if cfg.type == PANEL_TYPE_TEXT then
         RenderTextRows(self, frame, data.entries or {}, rowLimit, data.duration)
     else
-        local instant = cfg.mode ~= "fight"
-        RenderBarRows(self, frame, data.entries or {}, rowLimit, data.duration, data.maxValue, instant)
+        RenderBarRows(self, frame, data.entries or {}, rowLimit, data.duration, data.maxValue)
     end
 end
 
@@ -1905,23 +1904,8 @@ function addon:OnUITick(force)
     local renderDirty = state.renderDirty == true or state.uiDirty == true
     local hasVisible = self:HasVisiblePanels()
 
-    local fightTick = state.inFight and not state.awaitingFightEnd
-    local totalPeriodicTick = false
-    if state.inFight then
-        local totalDamage = tonumber(state.totalDamage) or 0
-        if totalDamage <= 0 then
-            totalPeriodicTick = true
-        else
-            local nextTotalRefreshAt = tonumber(state.nextTotalRefreshAt) or 0
-            if now >= nextTotalRefreshAt then
-                totalPeriodicTick = true
-                state.nextTotalRefreshAt = now + 10
-            end
-        end
-    end
-
-    local rebuildFight = force or dataDirty or fightTick
-    local rebuildTotal = force or dataDirty or totalPeriodicTick
+    local rebuildFight = force or dataDirty
+    local rebuildTotal = force or dataDirty
     local shouldBuildData = rebuildFight or rebuildTotal
     local shouldRender = hasVisible and (force or renderDirty or shouldBuildData)
 

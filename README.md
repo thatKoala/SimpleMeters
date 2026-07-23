@@ -47,23 +47,23 @@ SimpleMeters is designed so DPS remains practical and stable:
 - Classic Era and Season of Discovery (`1.15.8`, interface `11508`)
 - Burning Crusade Classic / Anniversary progression (`2.5.x`, interfaces `20505` and `20506`)
 
-## v0.41 Patch Notes
+## v0.5 Patch Notes
 
-v0.41 is a lightweight reliability and UI polish release focused on keeping SimpleMeters dependable during real dungeon and raid play.
+v0.5 focuses on responsive resets, a more flexible compact layout, and smoother long-session performance.
 
-- Combat data is saved more safely during logout, zoning, and longer fights.
-- Damage attribution is stricter for group members, pets, guardians, reactive damage, and self-damage edge cases.
-- Boss mode keeps player rows in the main meter and shows boss history in a fixed attached popout.
-- Row DPS text uses `348/s` formatting instead of `(348/s)`.
-- Tooltips separate player abilities, pet abilities, and pet totals.
-- Slash commands now include explicit show, hide, toggle, and minimap controls.
-- Header controls and damage rows were polished for a cleaner stock-UI feel.
-- Damage row borders now draw over the bar fill, improving the rounded-edge look.
-- TOC compatibility is prepared for Classic Era / Season of Discovery interface `11508` and TBC Classic interfaces `20505` and `20506`.
+- Reset now clears Total, Fight, and Boss displays immediately without requiring a tab change.
+- Roster refresh no longer errors when loading existing saved combat data.
+- Reset fully discards old actor and spell tables, reducing stale-data overhead in long sessions.
+- The minimum panel width is reduced from 240px to 220px while preserving safe spacing for tabs, rows, and header controls.
+- Periodic combat persistence now updates only changed actors and spell metadata.
+- Unchanged boss history is no longer rebuilt every five seconds during combat.
+- Quiet combat periods avoid redundant ranking rebuilds while fight timeout and persistence checks remain active.
+- Unused UI and lookup code was removed as part of a focused maintenance pass.
 
 Release integrity:
 
-- `SimpleMeters-v0.41.zip` SHA-256: `60542aa39041d4b5ddc78d4dffbadbcfd374ef618a5126bb556754273b31007a`
+- [Download SimpleMeters v0.5](builds/latest/SimpleMeters-v0.5.zip)
+- `SimpleMeters-v0.5.zip` SHA-256: `28bf0b5e503c0f5df996306f860b6311e3100e27525a34ec281e4dddacda574e`
 
 Author: `paul@thatkoala.com`
 

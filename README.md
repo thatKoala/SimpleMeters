@@ -53,6 +53,7 @@ v0.5 focuses on responsive resets, a more flexible compact layout, and smoother 
 
 - Reset now clears Total, Fight, and Boss displays immediately without requiring a tab change.
 - Roster refresh no longer errors when loading existing saved combat data.
+- Dungeon reset prompts now use Blizzard's localized reset-success format and require existing meter data and a stable world state.
 - Reset fully discards old actor and spell tables, reducing stale-data overhead in long sessions.
 - The minimum panel width is reduced from 240px to 220px while preserving safe spacing for tabs, rows, and header controls.
 - Periodic combat persistence now updates only changed actors and spell metadata.
@@ -63,7 +64,7 @@ v0.5 focuses on responsive resets, a more flexible compact layout, and smoother 
 Release integrity:
 
 - [Download SimpleMeters v0.5](builds/latest/SimpleMeters-v0.5.zip)
-- `SimpleMeters-v0.5.zip` SHA-256: `28bf0b5e503c0f5df996306f860b6311e3100e27525a34ec281e4dddacda574e`
+- `SimpleMeters-v0.5.zip` SHA-256: `dac6c41ee256b31a2bb8323c53287135a0b72418d0cb0aed7164848767218eee`
 
 Author: `paul@thatkoala.com`
 

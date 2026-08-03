@@ -15,6 +15,7 @@ local min = math.min
 local tonumber = tonumber
 local strlower = string.lower
 local GetTime = GetTime
+local IsInInstance = IsInInstance
 
 local VERSION = "0.5"
 local RESET_POPUP_ID = "SIMPLEMETERS_CONFIRM_RESET"
@@ -549,6 +550,16 @@ function addon:ADDON_LOADED(loadedAddonName)
 end
 
 function addon:PLAYER_ENTERING_WORLD()
+    local inInstance, instanceType = false, "none"
+    if IsInInstance then
+        inInstance, instanceType = IsInInstance()
+    end
+    self.instanceContext = {
+        inInstance = inInstance == true,
+        instanceType = instanceType or "none",
+    }
+    self.isWorldTransitioning = false
+
     if self.RefreshRosterCache then
         self:RefreshRosterCache()
     end
@@ -558,6 +569,7 @@ function addon:PLAYER_ENTERING_WORLD()
 end
 
 function addon:PLAYER_LEAVING_WORLD()
+    self.isWorldTransitioning = true
     if self.SavePersistedCombat then
         self:SavePersistedCombat(true)
     end
@@ -633,24 +645,48 @@ function addon:BOSS_KILL(arg1, arg2)
     end
 end
 
+local function IsInstanceResetSuccessMessage(msg)
+    local formatString = INSTANCE_RESET_SUCCESS
+    if type(formatString) ~= "string" then
+        return false
+    end
+
+    local tokenStart, tokenEnd = formatString:find("%s", 1, true)
+    if not tokenStart then
+        return msg == formatString
+    end
+
+    local prefix = formatString:sub(1, tokenStart - 1)
+    local suffix = formatString:sub(tokenEnd + 1)
+    if #msg <= (#prefix + #suffix) then
+        return false
+    end
+    if prefix ~= "" and msg:sub(1, #prefix) ~= prefix then
+        return false
+    end
+    if suffix ~= "" and msg:sub(-#suffix) ~= suffix then
+        return false
+    end
+
+    return true
+end
+
 function addon:CHAT_MSG_SYSTEM(msg)
     if type(msg) ~= "string" then
         return
     end
 
-    local shouldPrompt = false
-    if INSTANCE_RESET_SUCCESS and msg == INSTANCE_RESET_SUCCESS then
-        shouldPrompt = true
+    if not IsInstanceResetSuccessMessage(msg) then
+        return
+    end
+    if self.isWorldTransitioning then
+        return
     end
 
-    if not shouldPrompt then
-        local lowered = strlower(msg)
-        if lowered:find("has been reset", 1, true) or lowered:find("instances have been reset", 1, true) then
-            shouldPrompt = true
-        end
-    end
-
-    if not shouldPrompt then
+    local state = self.state
+    local hasDamage = state and (tonumber(state.totalDamage) or 0) > 0
+    local hasBossHistory = state and type(state.bossHistory) == "table" and #state.bossHistory > 0
+    if not hasDamage and not hasBossHistory then
         return
     end
 

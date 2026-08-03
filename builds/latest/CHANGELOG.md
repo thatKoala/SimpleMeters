@@ -8,6 +8,7 @@ v0.5 focuses on immediate UI behavior, more compact layouts, and lower overhead 
 
 - Reset now clears Total, Fight, and Boss displays immediately without requiring a tab change.
 - Fixes a roster-refresh error that could occur while loading existing saved combat data.
+- Dungeon reset prompts recognize Blizzard's localized reset-success format, ignore zoning and unrelated messages, and appear only when meter data exists.
 - Reset removes old actor and spell tables completely instead of retaining empty historical records.
 - Boss history and selected snapshots clear immediately with the rest of the meter data.
 
@@ -30,7 +31,7 @@ v0.5 focuses on immediate UI behavior, more compact layouts, and lower overhead 
 
 ### Build Integrity
 
-- `SimpleMeters-v0.5.zip` SHA-256: `28bf0b5e503c0f5df996306f860b6311e3100e27525a34ec281e4dddacda574e`
+- `SimpleMeters-v0.5.zip` SHA-256: `dac6c41ee256b31a2bb8323c53287135a0b72418d0cb0aed7164848767218eee`
 
 ## v0.41 - Combat Reliability + UI Polish
 
